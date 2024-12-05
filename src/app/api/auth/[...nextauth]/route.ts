@@ -1,69 +1,96 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-export const authOptions = {
+interface CustomUser {
+    id: string;
+    name: string;
+    username: string;
+    password: string;
+    email: string;
+    role: "user" | "admin";
+}
+
+// Extend the JWT interface
+declare module "next-auth/jwt" {
+    interface JWT {
+        id?: string;
+        role?: "user" | "admin";
+        admin?: CustomUser;
+        user?: CustomUser;
+    }
+}
+
+// Extend the Session interface
+declare module "next-auth" {
+    interface Session {
+        user: {
+            id: string;
+            role: "user" | "admin";
+            admin?: CustomUser;
+            user?: CustomUser;
+        };
+    }
+}
+
+export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
-            name: "credentials",
+            name: "Credentials",
             credentials: {
                 username: { label: "Username", type: "text" },
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                // Simulated admin and user data (replace with actual database/API validation)
-                const user = { id: "1", name: "John Doe", username: "john", password: "password123", email: "johnDoe@gmail.com", role: "user" };
-                const admin = { id: "admin1", name: "Admin", username: "admin", password: "adminpass", email: "admin@example.com", role: "admin" };
+                const user: CustomUser = {
+                    id: "1",
+                    name: "John Doe",
+                    username: "john",
+                    password: "password123",
+                    email: "johnDoe@gmail.com",
+                    role: "user",
+                };
 
-                // Check if credentials match user or admin
+                const admin: CustomUser = {
+                    id: "admin1",
+                    name: "Admin",
+                    username: "admin",
+                    password: "adminpass",
+                    email: "admin@example.com",
+                    role: "admin",
+                };
+
                 if (credentials?.username === user.username && credentials?.password === user.password) {
-                    return user; // Return user object if authentication is successful
+                    return user;
                 }
 
                 if (credentials?.username === admin.username && credentials?.password === admin.password) {
-                    return admin; // Return admin object if authentication is successful
+                    return admin;
                 }
 
-                return null; // Return null if authentication fails
+                return null;
             },
         }),
     ],
     pages: {
-        signIn: "/auth/signin", // Redirect users to the default sign-in page
-        error: "/auth/signin", // Redirect errors to the same sign-in page
+        signIn: "/auth/signin",
+        error: "/auth/signin",
     },
     callbacks: {
-        async jwt({ token, user }: any) {
-            if (user) {
-                // Store both user and admin data in the token
-                token.id = user.id;
-                token.role = user.role;
+        async jwt({ token, user }) {
+            if (user && "role" in user) {
+                const customUser = user as CustomUser; // Cast to CustomUser type
+                token.id = customUser.id;
+                token.role = customUser.role;
 
-                if (user.role === "admin") {
-                    // Store admin-specific data in the token if logged in as admin
-                    token.admin = user;
-                } else if (user.role === "user") {
-                    // Store user-specific data in the token if logged in as user
-                    token.user = user;
+                if (customUser.role === "admin") {
+                    token.admin = customUser;
+                } else if (customUser.role === "user") {
+                    token.user = customUser;
                 }
             }
             return token;
         },
-        async session({ session, token }: any) {
-            // Attach both user and admin data to the session
-            session.user.id = token.id;
-            session.user.role = token.role;
-
-            if (token.admin) {
-                session.user.admin = token.admin; // Store admin data in session if available
-            }
-
-            if (token.user) {
-                session.user.user = token.user; // Store user data in session if available
-            }
-
-            return session;
-        },
-    },
+    }
 };
 
 const handler = NextAuth(authOptions);
