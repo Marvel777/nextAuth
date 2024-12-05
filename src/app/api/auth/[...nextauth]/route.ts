@@ -34,36 +34,33 @@ export const authOptions = {
     callbacks: {
         async jwt({ token, user }: any) {
             if (user) {
-                // Assign token details based on role
+                // Store both user and admin data in the token
                 token.id = user.id;
-                token.role = user.role; // Differentiate based on role
-                /*************  ✨ Codeium Command ⭐  *************/
-                /**
-                 * This callback is called after signing in. It receives the user object
-                 * (as returned from `authorize`), as well as a JWT token with basic
-                 * information about the user (id, name, email, etc.).
-                 *
-                 * This is where you can set custom fields on the JWT, such as the user's
-                 * role (admin or regular user). This is passed to the session callback
-                 * where you can use it to customize the session object.
-                 *
-                 * @param {object} token - The JWT token with basic user information
-                 * @param {object} user - The user object as returned from `authorize`
-                 * @returns {object} - The updated JWT token
-                 */
-                /******  e397413a-dbfb-4390-989c-521e809c4c06  *******/
+                token.role = user.role;
+
+                if (user.role === "admin") {
+                    // Store admin-specific data in the token if logged in as admin
+                    token.admin = user;
+                } else if (user.role === "user") {
+                    // Store user-specific data in the token if logged in as user
+                    token.user = user;
+                }
             }
             return token;
         },
         async session({ session, token }: any) {
-            // Include different session data based on role
+            // Attach both user and admin data to the session
             session.user.id = token.id;
-            session.user.role = token.role; // Include the role in the session object
+            session.user.role = token.role;
 
-            if (session.user.role === "admin") {
-                // Optionally, add specific admin data to session if needed
-                session.user.isAdmin = true;
+            if (token.admin) {
+                session.user.admin = token.admin; // Store admin data in session if available
             }
+
+            if (token.user) {
+                session.user.user = token.user; // Store user data in session if available
+            }
+
             return session;
         },
     },
